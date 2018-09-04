@@ -925,12 +925,7 @@ def encodeUcs2(text):
     :return: A bytearray containing the string encoded in UCS2 encoding
     :rtype: bytearray
     """
-    result = bytearray()
-
-    for b in map(ord, text):
-        result.append(b >> 8)
-        result.append(b & 0xFF)
-    return result
+    return bytearray(text, 'utf-16') #Requires utf-16 input, but now outputs all our lovely unicode.
 
 def divideTextUcs2(plainText):
     """ UCS-2 message dividing algorithm
