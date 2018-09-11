@@ -375,10 +375,14 @@ def encodeSmsSubmitPdu(number, text, reference=0, validity=None, smsc=None, requ
 
         if udhLen > 0:
             userDataLength += udhLen + 1 # +1 for the UDH length indicator byte
+<<<<<<< HEAD
             try:
                 pdu.append(userDataLength)
             except TypeError:
                 pdu.extent(userDataLength)
+=======
+            pdu+=userDataLength
+>>>>>>> 81132a92e6b54a4ba9278018336b35a7f014501f
             pdu.append(udhLen)
             pdu.extend(udh) # UDH
         else:
