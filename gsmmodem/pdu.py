@@ -8,6 +8,7 @@ import sys, codecs
 from datetime import datetime, timedelta, tzinfo
 from copy import copy
 from .exceptions import EncodingError
+from binascii import hexlify
 
 # For Python 3 support
 PYTHON_VERSION = sys.version_info[0]
@@ -925,7 +926,7 @@ def encodeUcs2(text):
     :return: A bytearray containing the string encoded in UCS2 encoding
     :rtype: bytearray
     """
-    return bytearray(text, 'utf-16') #Requires utf-16 input, but now outputs all our lovely unicode.
+    return codecs.decode(hexlify(text.encode('utf-16be')), 'hex_codec') #Requires utf-16 input, but now outputs all our lovely unicode.
 
 def divideTextUcs2(plainText):
     """ UCS-2 message dividing algorithm
