@@ -951,4 +951,4 @@ def divideTextUcs2(plainText):
         else:
             chunk+=character
             chunklength+=charlength
-    return result
+    return result.append(chunk)
