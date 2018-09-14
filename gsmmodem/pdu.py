@@ -375,12 +375,7 @@ def encodeSmsSubmitPdu(number, text, reference=0, validity=None, smsc=None, requ
 
         if udhLen > 0:
             userDataLength += udhLen + 1 # +1 for the UDH length indicator byte
-            log.debug('userDataLength: ' + userDataLength)
-            log.debug('userData: ', userData)
-            try:
-                pdu.append(userDataLength)
-            except ValueError:
-                pdu.extend(userDataLength)
+            pdu.append(userDataLength)
             pdu.append(udhLen)
             pdu.extend(udh) # UDH
         else:
@@ -945,15 +940,15 @@ def divideTextUcs2(plainText):
     :rtype: list of str
     """
     result = []
-    resultLength = 0
-
-    fullChunksCount = int(len(plainText) / MAX_MULTIPART_MESSAGE_LENGTH[0x08])
-    for i in range(fullChunksCount):
-        result.append(plainText[i * MAX_MULTIPART_MESSAGE_LENGTH[0x08] : (i + 1) * MAX_MULTIPART_MESSAGE_LENGTH[0x08]])
-        resultLength  = resultLength + MAX_MULTIPART_MESSAGE_LENGTH[0x08]
-
-    # Add last, not fully filled chunk
-    if resultLength < len(plainText):
-        result.append(plainText[resultLength:])
-
+    chunklength = 0
+    chunk = ''
+    for character in plainText:
+        charlength = 2 if ord(character) > 0xffff else 1
+        if chunklength+charlength > MAX_MULTIPART_MESSAGE_LENGTH[0x08]:
+            result.append(chunk)
+            chunk = character
+            chunklength = charlength
+        else:
+            chunk+=character
+            chunklength+=charlength
     return result
