@@ -1440,23 +1440,26 @@ class GsmModem(SerialComms):
                 else:
                     raise CommandError('Failed to parse text-mode SMS message +CMGR response: {0}'.format(msgData))
         else:
-            cmgrMatch = self.CMGR_REGEX_PDU.match(msgData[0])
-            if not cmgrMatch:
-                raise CommandError('Failed to parse PDU-mode SMS message +CMGR response: {0}'.format(msgData))
-            stat, alpha, length = cmgrMatch.groups()
-            try:
-                stat = int(stat)
-            except Exception:
-                # Some modems (ZTE) do not always read return status - default to RECEIVED UNREAD
-                stat = Sms.STATUS_RECEIVED_UNREAD
-            pdu = msgData[1]
-            smsDict = decodeSmsPdu(pdu)
-            if smsDict['type'] == 'SMS-DELIVER':
-                return ReceivedSms(self, int(stat), smsDict['number'], smsDict['time'], smsDict['text'], smsDict['smsc'], smsDict.get('udh', []))
-            elif smsDict['type'] == 'SMS-STATUS-REPORT':
-                return StatusReport(self, int(stat), smsDict['reference'], smsDict['number'], smsDict['time'], smsDict['discharge'], smsDict['status'])
-            else:
-                raise CommandError('Invalid PDU type for readStoredSms(): {0}'.format(smsDict['type']))
+            for fragment in range(len(msgData)-1):
+                cmgrMatch = self.CMGR_REGEX_PDU.match(msgData[fragment])
+                if not cmgrMatch:
+                    continue
+
+                stat, alpha, length = cmgrMatch.groups()
+                try:
+                    stat = int(stat)
+                except Exception:
+                    # Some modems (ZTE) do not always read return status - default to RECEIVED UNREAD
+                    stat = Sms.STATUS_RECEIVED_UNREAD
+                pdu = msgData[fragment+1]
+                smsDict = decodeSmsPdu(pdu)
+                if smsDict['type'] == 'SMS-DELIVER':
+                    return ReceivedSms(self, int(stat), smsDict['number'], smsDict['time'], smsDict['text'], smsDict['smsc'], smsDict.get('udh', []))
+                elif smsDict['type'] == 'SMS-STATUS-REPORT':
+                    return StatusReport(self, int(stat), smsDict['reference'], smsDict['number'], smsDict['time'], smsDict['discharge'], smsDict['status'])
+                else:
+                    raise CommandError('Invalid PDU type for readStoredSms(): {0}'.format(smsDict['type']))
+            raise CommandError('Failed to parse PDU-mode SMS message +CMGR response: {0}'.format(msgData))
 
     def deleteStoredSms(self, index, memory=None):
         """ Deletes the SMS message stored at the specified index in modem/SIM card memory
