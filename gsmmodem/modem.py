@@ -146,7 +146,7 @@ class GsmModem(SerialComms):
     CDSI_REGEX = re.compile('\+CDSI:\s*"([^"]+)",(\d+)$')
     CDS_REGEX  = re.compile('\+CDS:\s*([0-9]+)"$')
 
-    def __init__(self, port, baudrate=115200, incomingCallCallbackFunc=None, smsReceivedCallbackFunc=None, smsStatusReportCallback=None, requestDelivery=True, AT_CNMI="", *a, **kw):
+    def __init__(self, port, baudrate=115200, incomingCallCallbackFunc=None, smsReceivedCallbackFunc=None, smsStatusReportCallback=None, requestDelivery=True, AT_CNMI="", defaultCTMIHandler=True, *a, **kw):
         super(GsmModem, self).__init__(port, baudrate, notifyCallbackFunc=self._handleModemNotification, *a, **kw)
         self.incomingCallCallback = incomingCallCallbackFunc or self._placeholderCallback
         self.smsReceivedCallback = smsReceivedCallbackFunc or self._placeholderCallback
@@ -184,6 +184,7 @@ class GsmModem(SerialComms):
         self._commands = None # List of supported AT commands
         #Pool of detected DTMF
         self.dtmfpool = []
+        self._defaultCTMIHandler = defaultCTMIHandler
 
     def connect(self, pin=None, waitingForModemToStartInSeconds=0):
         """ Opens the port and initializes the modem and SIM card
@@ -1344,19 +1345,21 @@ class GsmModem(SerialComms):
     def _handleSmsReceived(self, notificationLine):
         """ Handler for "new SMS" unsolicited notification line """
         self.log.debug('SMS message received')
-        self.processStoredSms()
-        # if self.smsReceivedCallback is not None:
-        #     cmtiMatch = self.CMTI_REGEX.match(notificationLine)
-        #     if cmtiMatch:
-        #         msgMemory = cmtiMatch.group(1)
-        #         msgIndex = cmtiMatch.group(2)
-        #         sms = self.readStoredSms(msgIndex, msgMemory)
-        #         try:
-        #             self.smsReceivedCallback(sms)
-        #         except Exception:
-        #             self.log.error('error in smsReceivedCallback', exc_info=True)
-        #         else:
-        #             self.deleteStoredSms(msgIndex)
+        if self._defaultCTMIHandler:
+            if self.smsReceivedCallback is not None:
+                cmtiMatch = self.CMTI_REGEX.match(notificationLine)
+                if cmtiMatch:
+                    msgMemory = cmtiMatch.group(1)
+                    msgIndex = cmtiMatch.group(2)
+                    sms = self.readStoredSms(msgIndex, msgMemory)
+                    try:
+                        self.smsReceivedCallback(sms)
+                    except Exception:
+                        self.log.error('error in smsReceivedCallback', exc_info=True)
+                    else:
+                        self.deleteStoredSms(msgIndex)
+        else:
+            self.processStoredSms()
 
     def _handleSmsStatusReport(self, notificationLine):
         """ Handler for SMS status reports """
