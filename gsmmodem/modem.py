@@ -1344,18 +1344,19 @@ class GsmModem(SerialComms):
     def _handleSmsReceived(self, notificationLine):
         """ Handler for "new SMS" unsolicited notification line """
         self.log.debug('SMS message received')
-        if self.smsReceivedCallback is not None:
-            cmtiMatch = self.CMTI_REGEX.match(notificationLine)
-            if cmtiMatch:
-                msgMemory = cmtiMatch.group(1)
-                msgIndex = cmtiMatch.group(2)
-                sms = self.readStoredSms(msgIndex, msgMemory)
-                try:
-                    self.smsReceivedCallback(sms)
-                except Exception:
-                    self.log.error('error in smsReceivedCallback', exc_info=True)
-                else:
-                    self.deleteStoredSms(msgIndex)
+        self.processStoredSms()
+        # if self.smsReceivedCallback is not None:
+        #     cmtiMatch = self.CMTI_REGEX.match(notificationLine)
+        #     if cmtiMatch:
+        #         msgMemory = cmtiMatch.group(1)
+        #         msgIndex = cmtiMatch.group(2)
+        #         sms = self.readStoredSms(msgIndex, msgMemory)
+        #         try:
+        #             self.smsReceivedCallback(sms)
+        #         except Exception:
+        #             self.log.error('error in smsReceivedCallback', exc_info=True)
+        #         else:
+        #             self.deleteStoredSms(msgIndex)
 
     def _handleSmsStatusReport(self, notificationLine):
         """ Handler for SMS status reports """
