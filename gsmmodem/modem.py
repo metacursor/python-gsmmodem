@@ -1423,6 +1423,7 @@ class GsmModem(SerialComms):
         """
         # Switch to the correct memory type if required
         self._setSmsMemory(readDelete=memory)
+        self.write('AT+CMGF=0')
         msgData = self.write('AT+CMGR={0}'.format(index))
         # Parse meta information
         if self.smsTextMode:
