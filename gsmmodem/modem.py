@@ -146,7 +146,9 @@ class GsmModem(SerialComms):
     CDSI_REGEX = re.compile('\+CDSI:\s*"([^"]+)",(\d+)$')
     CDS_REGEX  = re.compile('\+CDS:\s*([0-9]+)"$')
 
-    def __init__(self, port, baudrate=115200, incomingCallCallbackFunc=None, smsReceivedCallbackFunc=None, smsStatusReportCallback=None, requestDelivery=True, AT_CNMI="", defaultCMTIHandler=True, *a, **kw):
+    def __init__(self, port, baudrate=115200, incomingCallCallbackFunc=None, smsReceivedCallbackFunc=None,
+            smsStatusReportCallback=None, requestDelivery=True, AT_CNMI="", defaultCMTIHandler=True,
+            defaultTimeout=15, *a, **kw):
         super(GsmModem, self).__init__(port, baudrate, notifyCallbackFunc=self._handleModemNotification, *a, **kw)
         self.incomingCallCallback = incomingCallCallbackFunc or self._placeholderCallback
         self.smsReceivedCallback = smsReceivedCallbackFunc or self._placeholderCallback
@@ -185,6 +187,7 @@ class GsmModem(SerialComms):
         #Pool of detected DTMF
         self.dtmfpool = []
         self._defaultCMTIHandler = defaultCMTIHandler
+        self._defaultTimeout = defaultTimeout
 
     def connect(self, pin=None, waitingForModemToStartInSeconds=0):
         """ Opens the port and initializes the modem and SIM card
@@ -412,7 +415,7 @@ class GsmModem(SerialComms):
         """ Unlocks the SIM card using the specified PIN (if necessary, else does nothing) """
         # Unlock the SIM card if needed
         try:
-            cpinResponse = lineStartingWith('+CPIN', self.write('AT+CPIN?', timeout=15))
+            cpinResponse = lineStartingWith('+CPIN', self.write('AT+CPIN?', timeout=self._defaultTimeout))
         except TimeoutException as timeout:
             # Wavecom modems do not end +CPIN responses with "OK" (github issue #19) - see if just the +CPIN response was returned
             if timeout.data != None:
@@ -429,7 +432,7 @@ class GsmModem(SerialComms):
             else:
                 raise PinRequiredError('AT+CPIN')
 
-    def write(self, data, waitForResponse=True, timeout=10, parseError=True, writeTerm=TERMINATOR, expectedResponseTermSeq=None):
+    def write(self, data, waitForResponse=True, timeout=None, parseError=True, writeTerm=TERMINATOR, expectedResponseTermSeq=None):
         """ Write data to the modem.
 
         This method adds the ``\\r\\n`` end-of-line sequence to the data parameter, and
@@ -456,6 +459,8 @@ class GsmModem(SerialComms):
         """
 
         self.log.debug('write: %s', data)
+        if timeout is None:
+            timeout = self._defaultTimeout
         responseLines = super(GsmModem, self).write(data + writeTerm, waitForResponse=waitForResponse, timeout=timeout, expectedResponseTermSeq=expectedResponseTermSeq)
         if self._writeWait > 0: # Sleep a bit if required (some older modems suffer under load)
             time.sleep(self._writeWait)
@@ -548,7 +553,7 @@ class GsmModem(SerialComms):
         try:
             # AT+CLAC responses differ between modems. Most respond with +CLAC: and then a comma-separated list of commands
             # while others simply return each command on a new line, with no +CLAC: prefix
-            response = self.write('AT+CLAC', timeout=10)
+            response = self.write('AT+CLAC', timeout=self._defaultTimeout)
             if len(response) == 2: # Single-line response, comma separated
                 commands = response[0]
                 if commands.startswith('+CLAC'):
@@ -899,8 +904,8 @@ class GsmModem(SerialComms):
 
         if self.smsTextMode:
             # Send SMS via AT commands
-            self.write('AT+CMGS="{0}"'.format(destination), timeout=5, expectedResponseTermSeq='> ')
-            result = lineStartingWith('+CMGS:', self.write(text, timeout=35, writeTerm=CTRLZ))
+            self.write('AT+CMGS="{0}"'.format(destination), timeout=self._defaultTimeout/3, expectedResponseTermSeq='> ')
+            result = lineStartingWith('+CMGS:', self.write(text, timeout=self._defaultTimeout*2, writeTerm=CTRLZ))
         else:
             # Check encoding
             try:
@@ -921,8 +926,8 @@ class GsmModem(SerialComms):
 
             # Send SMS PDUs via AT commands
             for pdu in pdus:
-                self.write('AT+CMGS={0}'.format(pdu.tpduLength), timeout=5, expectedResponseTermSeq='> ')
-                result = lineStartingWith('+CMGS:', self.write(str(pdu), timeout=35, writeTerm=CTRLZ)) # example: +CMGS: xx
+                self.write('AT+CMGS={0}'.format(pdu.tpduLength), timeout=self._defaultTimeout/3, expectedResponseTermSeq='> ')
+                result = lineStartingWith('+CMGS:', self.write(str(pdu), timeout=self._defaultTimeout*2, writeTerm=CTRLZ)) # example: +CMGS: xx
 
         if result == None:
             raise CommandError('Modem did not respond with +CMGS response')
